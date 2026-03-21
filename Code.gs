@@ -1,7 +1,12 @@
 
 // Rows are written to this tab (bottom of the spreadsheet). Not the Google Form "Form Responses" sheet.
 const SHEET_NAME = "Registrations";
-const PAYMENT_PROOFS_FOLDER_NAME = "Great Skill Circuit – Payment proofs";
+
+/** Google Form file-upload folders (exact names as in Drive). Proofs go here — not created by this script. */
+const PAYMENT_PROOFS_PARENT_FOLDER_NAME = "The Great Circuit (File responses)";
+const PAYMENT_PROOFS_SUBFOLDER_NAME = "Payment Screenshot (File responses)";
+/** Optional: paste the inner folder’s ID from its Drive URL to skip name matching if you ever duplicate folder names. */
+const PAYMENT_PROOFS_FOLDER_ID = "";
 
 const STATIONS = [
   "Mystery Lab",
@@ -32,6 +37,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Registration form")
     .addItem("Fix Registrations column layout", "fixRegistrationSheetLayout")
+    .addItem("Test Drive upload (tiny image)", "testPaymentProofUploadToDrive")
     .addToUi();
 }
 
@@ -96,9 +102,7 @@ function doPost(e) {
         );
       } catch (driveErr) {
         Logger.log("Drive upload error: " + driveErr);
-        paymentProofLink =
-          "Drive upload failed — authorize Drive for this script or use a smaller image. Registrant: " +
-          email;
+        paymentProofLink = formatDriveFailureForSheet_(driveErr, email);
       }
     } else {
       paymentProofLink =
@@ -130,6 +134,19 @@ function doPost(e) {
   }
 }
 
+/** Short text for the sheet so you can see the real failure (truncated). */
+function formatDriveFailureForSheet_(driveErr, email) {
+  var msg = String(driveErr || "Unknown error").replace(/\s+/g, " ").trim();
+  if (msg.length > 160) msg = msg.substring(0, 157) + "...";
+  return (
+    "Drive upload failed — " +
+    msg +
+    " | Registrant: " +
+    email +
+    " | Check: Deploy Web app as Execute as: Me + Apps Script → Executions."
+  );
+}
+
 function savePaymentProofToDrive_(base64, mime, fileName, registrantName) {
   const bytes = Utilities.base64Decode(base64);
   const safeName =
@@ -141,16 +158,60 @@ function savePaymentProofToDrive_(base64, mime, fileName, registrantName) {
     "_" +
     (fileName || "proof.png");
   const blob = Utilities.newBlob(bytes, mime, safeName);
-  const folder = getOrCreateProofsFolder_();
+  const folder = getPaymentProofsTargetFolder_();
   const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (shareErr) {
+    // File exists; some Workspace orgs block "anyone with the link". Owner can still open in Drive.
+    Logger.log("setSharing skipped or failed (file created): " + shareErr);
+  }
   return file.getUrl();
 }
 
-function getOrCreateProofsFolder_() {
-  const it = DriveApp.getFoldersByName(PAYMENT_PROOFS_FOLDER_NAME);
-  if (it.hasNext()) return it.next();
-  return DriveApp.createFolder(PAYMENT_PROOFS_FOLDER_NAME);
+/**
+ * Run this from Apps Script (▶ Run) after saving. If it completes and shows a URL in the dialog,
+ * Drive is authorized for this project. If it fails, read the error — same as failed form uploads.
+ */
+function testPaymentProofUploadToDrive() {
+  const tinyPngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const url = savePaymentProofToDrive_(tinyPngBase64, "image/png", "test-proof.png", "DriveTest");
+  SpreadsheetApp.getUi().alert("Drive upload OK. Test file URL (open in browser):\n\n" + url);
+}
+
+/**
+ * Uses the existing Form folders: My Drive → parent → subfolder.
+ * If you rename folders in Drive, update the name constants (or set PAYMENT_PROOFS_FOLDER_ID).
+ */
+function getPaymentProofsTargetFolder_() {
+  if (PAYMENT_PROOFS_FOLDER_ID && String(PAYMENT_PROOFS_FOLDER_ID).trim()) {
+    try {
+      return DriveApp.getFolderById(String(PAYMENT_PROOFS_FOLDER_ID).trim());
+    } catch (idErr) {
+      throw new Error(
+        "Invalid PAYMENT_PROOFS_FOLDER_ID in Code.gs, or no access: " + idErr
+      );
+    }
+  }
+
+  const parentName = PAYMENT_PROOFS_PARENT_FOLDER_NAME;
+  const childName = PAYMENT_PROOFS_SUBFOLDER_NAME;
+  const parents = DriveApp.getFoldersByName(parentName);
+  while (parents.hasNext()) {
+    const parent = parents.next();
+    const children = parent.getFoldersByName(childName);
+    if (children.hasNext()) {
+      return children.next();
+    }
+  }
+  throw new Error(
+    'Could not find folder "' +
+      childName +
+      '" inside "' +
+      parentName +
+      '". Open Drive and match the names exactly, or set PAYMENT_PROOFS_FOLDER_ID to the subfolder ID.'
+  );
 }
 
 function getOrCreateSheet_() {

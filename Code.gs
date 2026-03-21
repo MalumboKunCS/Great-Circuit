@@ -67,22 +67,31 @@ function doPost(e) {
       return json_({ ok: false, message: "Please accept the event terms to continue." });
     }
 
+    // Payment proof: try Drive upload. Always append a row so registrations appear even if upload fails
+    // (large/truncated POST payloads used to skip appendRow entirely).
     var paymentProofLink = "";
     if (paymentProofBase64 && paymentProofName) {
       try {
-        paymentProofLink = savePaymentProofToDrive_(paymentProofBase64, paymentProofMime, paymentProofName, fullName);
+        paymentProofLink = savePaymentProofToDrive_(
+          paymentProofBase64,
+          paymentProofMime,
+          paymentProofName,
+          fullName
+        );
       } catch (driveErr) {
         Logger.log("Drive upload error: " + driveErr);
-        return json_({ ok: false, message: "Could not save payment proof. Try a smaller image or authorize Drive for this script." });
+        paymentProofLink =
+          "Drive upload failed — authorize Drive for this script or use a smaller image. Registrant: " +
+          email;
       }
     } else {
-      return json_({ ok: false, message: "Payment screenshot is required." });
+      paymentProofLink =
+        "No file received — payload may be too large; ask registrant to resend a smaller screenshot.";
     }
 
     const assignedStation = allocateStation_(sheet, stationPrefs);
 
     Logger.log("Appending row for: " + fullName);
-    // Plain URL — Google Sheets turns it into a clickable link automatically.
     sheet.appendRow([
       new Date(),
       fullName,
@@ -93,7 +102,7 @@ function doPost(e) {
       heardHow,
       heardHow === "Through a person" ? heardPersonName : "",
       stationPrefs.join(", "),
-      paymentProofName,
+      paymentProofName || "(none)",
       paymentProofLink,
       assignedStation,
       "Yes",
@@ -145,7 +154,14 @@ function ensureHeaders_(sheet) {
     .getValues()[0]
     .map((h) => String(h || "").trim());
   const isEmpty = existing.every((h) => !h);
-  if (isEmpty) sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+  if (isEmpty) {
+    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    return;
+  }
+  // Fix header row only when there is no data below (avoid overwriting a mistaken first data row).
+  if (existing[0] !== HEADERS[0] && sheet.getLastRow() <= 1) {
+    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+  }
 }
 
 function allocateStation_(sheet, prefs) {

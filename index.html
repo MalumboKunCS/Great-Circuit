@@ -14,6 +14,18 @@
     <script defer src="./app.js"></script>
   </head>
   <body>
+    <div class="toast-stack" id="toastStack" aria-live="polite">
+      <div id="formSuccess" class="global-toast global-toast--success is-hidden" role="status">
+        <button type="button" class="global-toast__dismiss" id="dismissSuccess" aria-label="Close">×</button>
+        <p class="global-toast__message" id="formSuccessMessage"></p>
+      </div>
+      <div id="formErrors" class="global-toast global-toast--error is-hidden" role="alert">
+        <div class="global-toast__title">Please correct the following:</div>
+        <ul id="errorList" class="global-toast__list"></ul>
+        <button type="button" class="global-toast__dismiss" id="dismissErrors" aria-label="Dismiss">×</button>
+      </div>
+    </div>
+
     <iframe
       name="apps_script_iframe"
       id="apps_script_iframe"
@@ -85,15 +97,6 @@
 
       <div class="form-card">
         <h2 class="section-title">Event Registration</h2>
-
-        <div id="formErrors" class="status error is-hidden">
-          <div class="status-error-title">Please fix the following:</div>
-          <ul id="errorList" class="error-list"></ul>
-        </div>
-
-        <div class="success-wrap">
-          <div id="formSuccess" class="status success toast is-hidden"></div>
-        </div>
 
         <form id="registrationForm" class="registration-form" novalidate>
           <h3 class="section-title section-title--first">Your information</h3>
@@ -206,7 +209,7 @@
               <p class="hint hint--block">
                 Your ticket covers five skill stations and a full day of hands-on discovery. Send payment
                 to <strong>0777770117 (Ramu Krishnamurthy)</strong>, then upload your confirmation
-                screenshot below (PNG or JPG, max 3&nbsp;MB).
+                screenshot below (PNG or JPG; large images are resized automatically before send).
               </p>
             </div>
 

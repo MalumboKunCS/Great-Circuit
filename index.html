@@ -4,30 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Great Skill Circuit - Registration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
     <script defer src="./app.js"></script>
   </head>
   <body>
-    <!-- Hidden target for Apps Script POST (avoids fetch/CORS blocking the request) -->
     <iframe
       name="apps_script_iframe"
       id="apps_script_iframe"
       title="Registration submit"
-      style="display: none; width: 0; height: 0; border: 0"
+      class="submit-iframe"
     ></iframe>
 
     <div class="container">
       <div class="top-card">
         <div class="event-banner">
-          <img
-            src="./assets/logo.png"
-            alt="SparkNext header"
-          />
+          <img src="./assets/logo.png" alt="SparkNext header" />
         </div>
-        <h1>The Great Skill Circuit</h1>
+        <h1 class="page-title">The Great Skill Circuit</h1>
         <div class="event-scroll">
           <p class="event-intro">
-            Warm greetings from SparkNext Learning Hub. The Great Skills Circuit is a half-day
+            Warm greetings from SparkNext Learning Hub! The Great Skills Circuit is a half-day
             immersive experience designed to spark creativity, curiosity, and confidence.
           </p>
 
@@ -43,11 +45,11 @@
               In one half-day, you rotate through five skill stations, spending 45 minutes at each.
               Every stop is built to unlock a new skill, perspective, or hidden strength.
             </p>
-            <p style="margin-top: 0.5rem;"><strong>Our promise:</strong> 45 minutes | One new skill unlocked.</p>
+            <p class="event-promise"><strong>Our promise:</strong> 45 minutes | One new skill unlocked.</p>
           </div>
 
           <div class="event-section">
-            <h3>The 5 Skill Stations</h3>
+            <h3 class="event-heading">The 5 Skill Stations</h3>
             <div class="event-station">
               <strong>"The Mystery Lab"</strong><br />
               Escape-room style teamwork challenge focused on clues, logic, and speed.
@@ -71,8 +73,8 @@
           </div>
 
           <div class="event-section">
-            <h3>What to bring</h3>
-            <ul style="padding-left: 1.25rem; margin-top: 0.35rem;">
+            <h3 class="event-heading">What to bring</h3>
+            <ul class="event-list">
               <li>A charged smartphone with internet access</li>
               <li>Your laptop (if available)</li>
               <li>An open, curious mindset ready to explore and learn</li>
@@ -84,26 +86,26 @@
       <div class="form-card">
         <h2 class="section-title">Event Registration</h2>
 
-        <div id="formErrors" class="status error" style="display: none;">
-          <div style="font-weight: 900;">Please fix the following:</div>
+        <div id="formErrors" class="status error is-hidden">
+          <div class="status-error-title">Please fix the following:</div>
           <ul id="errorList" class="error-list"></ul>
         </div>
 
-        <div style="text-align: center; margin-top: 8px;">
-          <div id="formSuccess" class="status success toast" style="display: none;"></div>
+        <div class="success-wrap">
+          <div id="formSuccess" class="status success toast is-hidden"></div>
         </div>
 
-        <form id="registrationForm">
-          <h3 class="section-title" style="margin-top: 0;">Your Information</h3>
+        <form id="registrationForm" class="registration-form" novalidate>
+          <h3 class="section-title section-title--first">Your information</h3>
 
           <div class="grid">
             <div class="field">
-              <label for="fullName">Full Name</label>
+              <label for="fullName">Full name</label>
               <input id="fullName" type="text" autocomplete="name" placeholder="Enter your name" required />
             </div>
 
             <div class="field">
-              <label for="phoneNumber">Phone Number</label>
+              <label for="phoneNumber">Phone number</label>
               <input
                 id="phoneNumber"
                 type="tel"
@@ -121,7 +123,7 @@
 
             <div class="field">
               <label for="age">Age (14–21)</label>
-              <input id="age" type="number" min="14" max="21" placeholder="Enter your age" required />
+              <input id="age" type="number" min="14" max="21" placeholder="Your age" required />
             </div>
 
             <div class="field">
@@ -136,70 +138,132 @@
             </div>
           </div>
 
-          <h3 class="section-title" style="margin-top: 18px;">Station Preferences</h3>
-          <div class="hint">
-            You'll participate in <strong>all 5 stations</strong> during the event — this is just to let us know which stalls you'd like to <strong>start with</strong>. Pick up to 3, in order of preference (1st choice, 2nd, 3rd).
-            <div style="margin-top: 6px; color: #111827; font-weight: 800;">
-              Selected: <span id="selectedCount">0/3</span>
+          <h3 class="section-title">How did you hear about this event?</h3>
+          <p class="field-help">
+            If someone personally invited you, choose “Through a person” and add their name.
+          </p>
+          <div class="grid grid--single">
+            <div class="field full">
+              <label for="heardHow">Source</label>
+              <select id="heardHow" name="heardHow" required>
+                <option value="">Select…</option>
+                <option value="Social media">Social media</option>
+                <option value="Through a person">Through a person</option>
+                <option value="School or teacher">School or teacher</option>
+                <option value="Poster or flyer">Poster or flyer</option>
+                <option value="SparkNext / website">SparkNext / website</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
-            <div style="margin-top: 4px;">
-              Start order: <span id="preferencesPreview" style="font-weight: 700;">None selected yet</span>
+            <div class="field full" id="heardPersonWrap" hidden>
+              <label for="heardPersonName">Name of the person (if applicable)</label>
+              <input
+                id="heardPersonName"
+                type="text"
+                autocomplete="off"
+                placeholder="Who told you about the event?"
+              />
             </div>
           </div>
 
-          <div class="stations" style="margin-top: 12px;">
+          <h3 class="section-title">Station preferences</h3>
+          <p class="hint hint--block">
+            You’ll participate in <strong>all 5 stations</strong> during the event. This tells us which
+            stalls you’d like to <strong>start with</strong>. Pick up to 3, in order (1st, 2nd, 3rd).
+          </p>
+          <div class="station-meta">
+            <span>Selected: <strong id="selectedCount">0/3</strong></span>
+            <span>Start order: <strong id="preferencesPreview">None selected yet</strong></span>
+          </div>
+
+          <div class="stations">
             <label class="station-option">
               <input class="station-check" type="checkbox" data-station="Mystery Lab" />
-              <div style="font-weight: 800;">Mystery Lab</div>
+              <span class="station-option__label">Mystery Lab</span>
             </label>
             <label class="station-option">
               <input class="station-check" type="checkbox" data-station="Writing Den" />
-              <div style="font-weight: 800;">Writing Den</div>
+              <span class="station-option__label">Writing Den</span>
             </label>
             <label class="station-option">
               <input class="station-check" type="checkbox" data-station="Creative Studio" />
-              <div style="font-weight: 800;">Creative Studio</div>
+              <span class="station-option__label">Creative Studio</span>
             </label>
             <label class="station-option">
               <input class="station-check" type="checkbox" data-station="Byte Zone" />
-              <div style="font-weight: 800;">Byte Zone</div>
+              <span class="station-option__label">Byte Zone</span>
             </label>
             <label class="station-option">
               <input class="station-check" type="checkbox" data-station="Innovation Garage" />
-              <div style="font-weight: 800;">Innovation Garage</div>
+              <span class="station-option__label">Innovation Garage</span>
             </label>
           </div>
 
-          <h3 class="section-title" style="margin-top: 18px;">Payment</h3>
+          <h3 class="section-title">Payment</h3>
           <div class="payment-row">
             <div class="payment-box">
-              <strong>Secure your spot for just K100</strong>
-              <div class="hint" style="margin-top: 8px;">
-                Your ticket unlocks five skill stations, hands-on activities, and a day of discovery — all for K100. Send payment to <strong>0972141930</strong>, upload your confirmation screenshot below, and send it to 0972141930 via WhatsApp after submitting to complete registration.
-              </div>
+              <p class="payment-lead">Secure your spot for just <strong>K100</strong></p>
+              <p class="hint hint--block">
+                Your ticket covers five skill stations and a full day of hands-on discovery. Send payment
+                to <strong>0777770117 (Ramu Krishnamurthy)</strong>, then upload your confirmation
+                screenshot below (PNG or JPG, max 3&nbsp;MB).
+              </p>
             </div>
 
             <div class="payment-box">
-              <div class="field" style="gap: 6px;">
-                <label for="paymentProof">Payment Screenshot</label>
+              <div class="field">
+                <label for="paymentProof">Payment screenshot</label>
                 <input
                   id="paymentProof"
                   class="file-input"
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/*"
                   required
                 />
               </div>
             </div>
           </div>
 
+          <section class="terms-section" aria-labelledby="terms-heading">
+            <h3 id="terms-heading" class="section-title">Event terms &amp; consent</h3>
+            <div class="terms-box" tabindex="0">
+              <p>
+                By attending <strong>The Great Skill Circuit</strong>, you understand that the event may
+                be photographed, filmed, or recorded for documentation, safety, and quality purposes.
+              </p>
+              <p>
+                <strong>Publicity &amp; social media:</strong> SparkNext Learning Hub and approved
+                partners may use photos, video clips, or audio in non-commercial promotional materials
+                (for example social media posts, websites, newsletters, and event highlights) to celebrate
+                learning and showcase the programme. This helps other young people discover similar
+                opportunities.
+              </p>
+              <p>
+                You consent to this use without payment, unless you have contacted the organisers in
+                advance with a written concern. If you do not wish to appear in close-up publicity
+                materials, please email the team before the event so we can note reasonable
+                accommodations where possible.
+              </p>
+              <p class="terms-note">
+                Your registration details are processed for event administration and follow-up only.
+              </p>
+            </div>
+            <label class="terms-agree">
+              <input id="termsAgree" type="checkbox" required />
+              <span
+                >I have read and agree to these terms, including photography and possible use of images on
+                social media and other channels.</span
+              >
+            </label>
+          </section>
+
           <div class="actions">
-            <button id="submitBtn" class="btn" type="submit">Submit Registration</button>
+            <button id="submitBtn" class="btn" type="submit">Submit registration</button>
           </div>
 
-          <div class="hint" style="text-align: center; margin-top: 10px;">
-            By submitting, your details are securely captured for manual registration follow-up.
-          </div>
+          <p class="form-footer">
+            By submitting, your details are captured securely for registration and verification.
+          </p>
         </form>
       </div>
     </div>

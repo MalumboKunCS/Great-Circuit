@@ -2,8 +2,14 @@
 const APPS_SCRIPT_WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycbwF43qtt9qneOpZblT5Jx89DI-gjpRLNgZ0WZM8_hn0YtMRNlceGDgPwiTU9k8-ia1dSA/exec";
 
-/** Max image size before base64 upload (Drive + Apps Script limits). ~3 MB raw file. */
-const MAX_PAYMENT_IMAGE_BYTES = 3 * 1024 * 1024;
+/** After compression, keep uploads small so Apps Script receives the full POST (large base64 was dropping rows). */
+/** Original file from device (we compress before upload). */
+const MAX_PAYMENT_IMAGE_BYTES = 8 * 1024 * 1024;
+const TARGET_MAX_COMPRESSED_BYTES = 450 * 1024;
+const SUCCESS_TOAST_MS = 22000;
+
+const SUCCESS_MESSAGE =
+  "Thank you for registering. Your submission has been received and is subject to verification. Once your registration is confirmed, your digital ticket will be sent to the email address you provided, typically within 24–48 hours. We appreciate your patience and look forward to hosting you.";
 
 const HEARD_THROUGH_PERSON = "Through a person";
 
@@ -31,15 +37,112 @@ function showErrors(list) {
   });
 
   box.classList.remove("is-hidden");
+  box.classList.add("global-toast--visible");
   $("formSuccess").classList.add("is-hidden");
+  $("formSuccess").classList.remove("global-toast--visible");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function hideErrors() {
+  const box = $("formErrors");
+  box.classList.add("is-hidden");
+  box.classList.remove("global-toast--visible");
+}
+
+let successToastTimer = null;
+
 function showSuccess(msg) {
-  const box = $("formSuccess");
-  box.textContent = msg;
-  box.classList.remove("is-hidden");
-  box.classList.add("toast--visible");
-  $("formErrors").classList.add("is-hidden");
+  const wrap = $("formSuccess");
+  const textEl = $("formSuccessMessage");
+  if (textEl) textEl.textContent = msg;
+  wrap.classList.remove("is-hidden");
+  wrap.classList.add("global-toast--visible");
+  hideErrors();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (successToastTimer) clearTimeout(successToastTimer);
+  successToastTimer = setTimeout(() => {
+    hideSuccess();
+  }, SUCCESS_TOAST_MS);
+}
+
+function hideSuccess() {
+  const wrap = $("formSuccess");
+  wrap.classList.add("is-hidden");
+  wrap.classList.remove("global-toast--visible");
+  if (successToastTimer) {
+    clearTimeout(successToastTimer);
+    successToastTimer = null;
+  }
+}
+
+/**
+ * Resize + JPEG compress so the POST payload stays small (Apps Script often truncates huge fields).
+ */
+function compressImageFile(file, maxEdge = 1400, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      resolve(file);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth || img.width;
+      let h = img.naturalHeight || img.height;
+      if (!w || !h) {
+        reject(new Error("Invalid image"));
+        return;
+      }
+      if (w > maxEdge || h > maxEdge) {
+        if (w > h) {
+          h = Math.round((h * maxEdge) / w);
+          w = maxEdge;
+        } else {
+          w = Math.round((w * maxEdge) / h);
+          h = maxEdge;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) reject(new Error("Compression failed"));
+          else resolve(blob);
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not load image"));
+    };
+    img.src = url;
+  });
+}
+
+async function preparePaymentProofBlob(file) {
+  if (!file.type.startsWith("image/")) return file;
+  try {
+    const blob = await compressImageFile(file);
+    if (blob.size <= TARGET_MAX_COMPRESSED_BYTES) return blob;
+    let q = 0.72;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const b = await compressImageFile(file, 1200, q);
+      if (b.size <= TARGET_MAX_COMPRESSED_BYTES) return b;
+      q -= 0.08;
+    }
+    return blob;
+  } catch {
+    if (file.size > MAX_PAYMENT_IMAGE_BYTES) throw new Error("Image too large");
+    return file;
+  }
 }
 
 function fileToBase64Parts(file) {
@@ -49,7 +152,7 @@ function fileToBase64Parts(file) {
       const dataUrl = reader.result;
       const comma = dataUrl.indexOf(",");
       const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-      const mime = file.type || "image/png";
+      const mime = file.type || "image/jpeg";
       resolve({ base64, mime });
     };
     reader.onerror = () => reject(new Error("Could not read file."));
@@ -202,7 +305,7 @@ function validateForm({
   if (!paymentProofFile) errors.push("Please upload your payment screenshot.");
   if (paymentProofFile && paymentProofFile.size > MAX_PAYMENT_IMAGE_BYTES) {
     errors.push(
-      `Payment screenshot must be ${Math.round(MAX_PAYMENT_IMAGE_BYTES / (1024 * 1024))}MB or less (try compressing the image).`
+      `Payment screenshot must be about ${Math.round(MAX_PAYMENT_IMAGE_BYTES / (1024 * 1024))}MB or less before upload.`
     );
   }
 
@@ -235,15 +338,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const paymentProofInput = $("paymentProof");
   const heardHowSelect = $("heardHow");
 
+  $("dismissSuccess")?.addEventListener("click", hideSuccess);
+  $("dismissErrors")?.addEventListener("click", hideErrors);
+
   heardHowSelect.addEventListener("change", toggleHeardPersonField);
   toggleHeardPersonField();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    $("formErrors").classList.add("is-hidden");
-    $("formSuccess").classList.add("is-hidden");
-    $("formSuccess").classList.remove("toast--visible");
+    hideErrors();
+    hideSuccess();
 
     const selectedStationsInOrder = stationState.getSelectedStationsInOrder();
     const paymentProofFile =
@@ -280,12 +385,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setSubmitState({ disabled: true });
 
+    let uploadBlob = paymentProofFile;
+    let uploadName = paymentProofFile.name;
+    try {
+      uploadBlob = await preparePaymentProofBlob(paymentProofFile);
+      if (uploadBlob !== paymentProofFile) {
+        uploadName = uploadName.replace(/\.[^.]+$/, "") + ".jpg";
+      }
+    } catch (prepErr) {
+      console.error(prepErr);
+      showErrors(["Could not process your payment image. Please use a JPG or PNG under 3 MB."]);
+      setSubmitState({ disabled: false });
+      return;
+    }
+
     let proofBase64 = "";
     let proofMime = "";
     try {
-      const parts = await fileToBase64Parts(paymentProofFile);
+      const parts = await fileToBase64Parts(uploadBlob);
       proofBase64 = parts.base64;
-      proofMime = parts.mime;
+      proofMime = parts.mime || "image/jpeg";
     } catch (err) {
       console.error(err);
       showErrors(["Could not read your payment image. Please try another file."]);
@@ -298,7 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
       heardHow,
       heardPersonName: heardHow === HEARD_THROUGH_PERSON ? heardPersonName : "",
       stationPrefs: selectedStationsInOrder,
-      paymentProofFile,
+      paymentProofFile: { name: uploadName },
       paymentProofBase64: proofBase64,
       paymentProofMime: proofMime,
       termsAccepted: true,
@@ -306,16 +425,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       submitToAppsScriptWebApp(payload);
-      showSuccess(
-        "Thank you. Your registration has been received successfully and is now under verification. Your ticket will be sent to your email within 30 minutes."
-      );
+      showSuccess(SUCCESS_MESSAGE);
       form.reset();
       stationState.reset();
       toggleHeardPersonField();
-      setTimeout(() => {
-        $("formSuccess").classList.add("is-hidden");
-        $("formSuccess").classList.remove("toast--visible");
-      }, 6000);
     } catch (err) {
       console.error(err);
       showErrors([

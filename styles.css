@@ -1,0 +1,336 @@
+/* SparkNext-inspired, clean + modern styling */
+
+/* If "The Seasons" is installed locally, it will be used for headings. */
+@font-face {
+  font-family: "The Seasons";
+  src: local("The Seasons"), local("The Seasons Regular");
+  font-weight: 400;
+  font-style: normal;
+}
+
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+  --primary: #2563eb;
+  --primary-700: #1d4ed8;
+  --focus: rgba(37, 99, 235, 0.25);
+  --danger: #dc2626;
+  --ok: #16a34a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.container {
+  width: min(860px, calc(100% - 32px));
+  margin: 32px auto 56px;
+}
+
+.top-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 22px 22px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+}
+
+.top-card h1 {
+  margin: 0 0 10px;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: 0;
+  font-family: "The Seasons", Georgia, "Times New Roman", serif;
+}
+
+.event-banner {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+}
+
+.event-banner img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.event-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.event-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.event-scroll::-webkit-scrollbar-thumb {
+  background: rgba(107, 114, 128, 0.35);
+  border-radius: 999px;
+}
+
+.top-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 14.5px;
+}
+
+/* Description sections - scannable, not overwhelming */
+.event-intro {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 1.25rem;
+}
+
+.event-section {
+  margin-bottom: 1.25rem;
+}
+
+.event-section h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+  font-family: "The Seasons", Georgia, "Times New Roman", serif;
+}
+
+.event-section p,
+.event-section ul {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.event-station {
+  margin-bottom: 0.85rem;
+}
+
+.event-station strong {
+  color: var(--text);
+}
+
+/* Discrete success message */
+.status.success.toast {
+  font-size: 13px;
+  padding: 10px 14px;
+  background: rgba(22, 163, 74, 0.1);
+  border-radius: 10px;
+  margin-top: 12px;
+  display: inline-block;
+}
+
+.form-card {
+  margin-top: 18px;
+  background: var(--card);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  font-family: "The Seasons", Georgia, "Times New Roman", serif;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+input,
+select {
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  outline: none;
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+  background: #fff;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--focus);
+}
+
+input::placeholder {
+  color: #9ca3af;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.stations {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 10px;
+}
+
+.station-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border: 1px solid rgba(229, 231, 235, 0.85);
+  border-radius: 12px;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease,
+    background 160ms ease;
+  user-select: none;
+}
+
+.station-option:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.06);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.station-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.station-option[aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.payment-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.payment-box {
+  border: 1px dashed rgba(37, 99, 235, 0.35);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.06), transparent);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.payment-box strong {
+  font-size: 14px;
+}
+
+.file-input {
+  height: auto;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.btn {
+  border: 0;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  width: min(360px, 100%);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease,
+    opacity 160ms ease;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22);
+}
+
+.btn:hover {
+  background: var(--primary-700);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0px);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.status {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.status.error {
+  color: var(--danger);
+}
+
+.status.success {
+  color: var(--ok);
+}
+
+.error-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  text-align: left;
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stations {
+    grid-template-columns: 1fr;
+  }
+}
+
+

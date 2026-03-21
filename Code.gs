@@ -28,6 +28,22 @@ const HEADERS = [
   "Terms accepted",
 ];
 
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("Registration form")
+    .addItem("Fix Registrations column layout", "fixRegistrationSheetLayout")
+    .addToUi();
+}
+
+/** Run once from the sheet menu if columns still look wrong after updating the script. */
+function fixRegistrationSheetLayout() {
+  const sheet = getOrCreateSheet_();
+  ensureHeaders_(sheet);
+  SpreadsheetApp.getUi().alert(
+    "Registrations tab checked. If the first row was the old 9-column header, data rows were realigned to match the form (13 columns)."
+  );
+}
+
 function doGet() {
   return ContentService.createTextOutput(
     "Web app is live. Submissions are saved to the sheet tab named: " + SHEET_NAME
@@ -144,22 +160,108 @@ function getOrCreateSheet_() {
   return sheet;
 }
 
+/** Old layout (9 cols): prefs were in G, no "how heard" / proof link / terms columns. */
+const LEGACY_HEADER_G_STATION_PREFS = "Station Preferences";
+
+/**
+ * True when row values match the OLD 9-column pattern: proof filename in H, nothing in J+,
+ * and not the new pattern (heard-how in G is usually short; prefs span multiple stations).
+ */
+function looksLegacyNineColDataRow_(row) {
+  const proofName = String(row[7] || "").trim(); // col H
+  const colJ = String(row[9] || "").trim(); // col J
+  if (colJ) return false;
+  if (!proofName) return false;
+  if (!/\.(png|jpg|jpeg|webp)$/i.test(proofName) && proofName.indexOf("Screenshot") === -1)
+    return false;
+  return true;
+}
+
+/**
+ * Fixes sheets that still show the 9-column header while doPost writes 13 values — that made
+ * new rows look "shifted". Rebuilds header + moves legacy rows into the correct columns.
+ * Rows already in 13-column format (e.g. J has proof filename) are left as-is.
+ */
+function normalizeLegacyRegistrationSheet_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) return;
+
+  const g1 = String(sheet.getRange(1, 7).getValue() || "").trim();
+  if (g1 !== LEGACY_HEADER_G_STATION_PREFS) return;
+
+  const lastCol = Math.max(sheet.getLastColumn(), HEADERS.length);
+  const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const out = [];
+  out.push(HEADERS.slice());
+
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r].slice();
+    while (row.length < HEADERS.length) row.push("");
+
+    if (looksLegacyNineColDataRow_(row)) {
+      out.push([
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        row[4],
+        row[5],
+        "",
+        "",
+        row[6],
+        row[7],
+        "",
+        row[8],
+        "Yes",
+      ]);
+      continue;
+    }
+
+    // Already 13-wide (or new submission): keep A–M as sent by the web app
+    out.push(row.slice(0, HEADERS.length));
+  }
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, out.length, HEADERS.length).setValues(out);
+}
+
+function headersRowMatches_(existing) {
+  for (var i = 0; i < HEADERS.length; i++) {
+    if (String(existing[i] || "").trim() !== HEADERS[i]) return false;
+  }
+  return true;
+}
+
 function ensureHeaders_(sheet) {
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     return;
   }
+
+  const g1 = String(sheet.getRange(1, 7).getValue() || "").trim();
+  if (g1 === LEGACY_HEADER_G_STATION_PREFS) {
+    normalizeLegacyRegistrationSheet_(sheet);
+    return;
+  }
+
+  const width = Math.max(sheet.getLastColumn(), HEADERS.length);
   const existing = sheet
-    .getRange(1, 1, 1, HEADERS.length)
+    .getRange(1, 1, 1, width)
     .getValues()[0]
-    .map((h) => String(h || "").trim());
-  const isEmpty = existing.every((h) => !h);
+    .map(function (h) {
+      return String(h || "").trim();
+    });
+  const isEmpty = existing.every(function (h) {
+    return !h;
+  });
   if (isEmpty) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     return;
   }
-  // Fix header row only when there is no data below (avoid overwriting a mistaken first data row).
-  if (existing[0] !== HEADERS[0] && sheet.getLastRow() <= 1) {
+
+  var headSlice = existing.slice(0, HEADERS.length);
+  if (!headersRowMatches_(headSlice)) {
+    // Refresh labels only; do not clear data (migration handled legacy case above).
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
   }
 }

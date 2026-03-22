@@ -5,8 +5,13 @@ const SHEET_NAME = "Registrations";
 /** Google Form file-upload folders (exact names as in Drive). Proofs go here — not created by this script. */
 const PAYMENT_PROOFS_PARENT_FOLDER_NAME = "The Great Circuit (File responses)";
 const PAYMENT_PROOFS_SUBFOLDER_NAME = "Payment Screenshot (File responses)";
-/** Optional: paste the inner folder’s ID from its Drive URL to skip name matching if you ever duplicate folder names. */
-const PAYMENT_PROOFS_FOLDER_ID = "";
+/**
+ * Optional: paste ONLY the folder ID (about 25–45 chars), OR the full browser URL.
+ * Wrong: pasting a long string or two IDs — getFolderById will fail.
+ * Example URL: https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz
+ *              → ID is only: 1AbCdEfGhIjKlMnOpQrStUvWxYz
+ */
+const PAYMENT_PROOFS_FOLDER_ID = "1rnqd-HDnFykqHnoPF43FW4qXXT3kqwZj";
 
 const STATIONS = [
   "Mystery Lab",
@@ -38,6 +43,7 @@ function onOpen() {
     .createMenu("Registration form")
     .addItem("Fix Registrations column layout", "fixRegistrationSheetLayout")
     .addItem("Test Drive upload (tiny image)", "testPaymentProofUploadToDrive")
+    .addItem("Log folder IDs (fast — View → Logs)", "listPaymentProofFolderIds_")
     .addToUi();
 }
 
@@ -180,38 +186,146 @@ function testPaymentProofUploadToDrive() {
   SpreadsheetApp.getUi().alert("Drive upload OK. Test file URL (open in browser):\n\n" + url);
 }
 
+function normalizeFolderLabel_(s) {
+  return String(s || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function folderNamesMatch_(a, b) {
+  return normalizeFolderLabel_(a) === normalizeFolderLabel_(b);
+}
+
+/** Direct child only — case-insensitive name. */
+function findDirectChildFolderInsensitive_(parentFolder, childName) {
+  const want = normalizeFolderLabel_(childName);
+  const it = parentFolder.getFolders();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (normalizeFolderLabel_(f.getName()) === want) return f;
+  }
+  return null;
+}
+
 /**
- * Uses the existing Form folders: My Drive → parent → subfolder.
- * If you rename folders in Drive, update the name constants (or set PAYMENT_PROOFS_FOLDER_ID).
+ * Accepts a bare ID or a full Drive URL; returns the folder resource id only.
+ * Google folder/file IDs are typically 25–45 chars (letters, digits, _ -).
+ */
+function extractDriveFolderId_(raw) {
+  var s = String(raw || "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+  if (!s) return "";
+  var m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1].split(/[?#]/)[0];
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]+$/.test(s)) return s;
+  return "";
+}
+
+function isLikelyDriveFolderId_(id) {
+  return typeof id === "string" && /^[a-zA-Z0-9_-]{20,60}$/.test(id);
+}
+
+/**
+ * Uses Form folders under My Drive.
+ * IMPORTANT: DriveApp.getFoldersByName() searches your whole Drive and can take many minutes on
+ * large accounts — we avoid it. Prefer PAYMENT_PROOFS_FOLDER_ID (copy from the folder URL).
  */
 function getPaymentProofsTargetFolder_() {
-  if (PAYMENT_PROOFS_FOLDER_ID && String(PAYMENT_PROOFS_FOLDER_ID).trim()) {
+  var rawId = PAYMENT_PROOFS_FOLDER_ID && String(PAYMENT_PROOFS_FOLDER_ID).trim();
+  if (rawId) {
+    var folderId = extractDriveFolderId_(rawId);
+    if (!folderId) {
+      throw new Error(
+        "PAYMENT_PROOFS_FOLDER_ID is not valid. Paste only the ID (letters/numbers after /folders/) or the full folder URL."
+      );
+    }
+    if (!isLikelyDriveFolderId_(folderId)) {
+      throw new Error(
+        'Folder ID looks wrong (length ' +
+          folderId.length +
+          '). Open the folder in Drive, copy the link, and use only the part after /folders/ — usually about 33 characters, not a long or doubled string.'
+      );
+    }
     try {
-      return DriveApp.getFolderById(String(PAYMENT_PROOFS_FOLDER_ID).trim());
+      return DriveApp.getFolderById(folderId);
     } catch (idErr) {
       throw new Error(
-        "Invalid PAYMENT_PROOFS_FOLDER_ID in Code.gs, or no access: " + idErr
+        "Cannot open folder id " +
+          folderId +
+          ". Check the ID, that this account owns the folder, and Drive access is authorized. " +
+          idErr
       );
     }
   }
 
   const parentName = PAYMENT_PROOFS_PARENT_FOLDER_NAME;
   const childName = PAYMENT_PROOFS_SUBFOLDER_NAME;
-  const parents = DriveApp.getFoldersByName(parentName);
-  while (parents.hasNext()) {
-    const parent = parents.next();
-    const children = parent.getFoldersByName(childName);
-    if (children.hasNext()) {
-      return children.next();
+  var root = DriveApp.getRootFolder();
+
+  // 1) Fast path only: under My Drive root (case-insensitive), then direct child
+  var top = root.getFolders();
+  while (top.hasNext()) {
+    var folder = top.next();
+    if (!folderNamesMatch_(folder.getName(), parentName)) continue;
+    var found = findDirectChildFolderInsensitive_(folder, childName);
+    if (found) return found;
+  }
+
+  // 2) One level deeper: e.g. Shared/shortcut wrappers — still bounded, no whole-Drive scan
+  top = root.getFolders();
+  while (top.hasNext()) {
+    var level1 = top.next();
+    var inner = level1.getFolders();
+    while (inner.hasNext()) {
+      var maybeParent = inner.next();
+      if (!folderNamesMatch_(maybeParent.getName(), parentName)) continue;
+      found = findDirectChildFolderInsensitive_(maybeParent, childName);
+      if (found) return found;
     }
   }
+
   throw new Error(
-    'Could not find folder "' +
+    'Could not find "' +
       childName +
-      '" inside "' +
+      '" under "' +
       parentName +
-      '". Open Drive and match the names exactly, or set PAYMENT_PROOFS_FOLDER_ID to the subfolder ID.'
+      '" within the first two levels of My Drive. Open that inner folder in Drive, copy the ID from the URL (folders/XXXX), and set PAYMENT_PROOFS_FOLDER_ID in Code.gs. Run listPaymentProofFolderIds_ for top-level names only.'
   );
+}
+
+/**
+ * Fast: logs only top-level My Drive folders + immediate children of folders whose names look
+ * Form-related. Does NOT walk your whole Drive (that can run for many minutes).
+ * View → Logs after running.
+ */
+function listPaymentProofFolderIds_() {
+  var root = DriveApp.getRootFolder();
+  Logger.log("=== Top-level folders in My Drive (id = copy into PAYMENT_PROOFS_FOLDER_ID) ===");
+  var it = root.getFolders();
+  while (it.hasNext()) {
+    var f = it.next();
+    Logger.log('"' + f.getName() + '"  id=' + f.getId());
+  }
+  Logger.log("=== Immediate children of folders matching Payment / Circuit / Great / Screenshot ===");
+  it = root.getFolders();
+  var maxParents = 80;
+  while (it.hasNext() && maxParents-- > 0) {
+    var parent = it.next();
+    var pn = parent.getName();
+    if (!/payment|circuit|great|screenshot|file responses/i.test(pn)) continue;
+    Logger.log('--- under "' + pn + '" ---');
+    var sub = parent.getFolders();
+    var maxKids = 40;
+    while (sub.hasNext() && maxKids-- > 0) {
+      var c = sub.next();
+      Logger.log('  "' + c.getName() + '"  id=' + c.getId());
+    }
+  }
+  Logger.log("Done. For uploads, paste the inner folder id into PAYMENT_PROOFS_FOLDER_ID.");
 }
 
 function getOrCreateSheet_() {

@@ -290,8 +290,8 @@ function validateForm({
   if (email && !isEmail(email)) errors.push("Please enter a valid email address.");
   const age = Number(ageStr);
   if (!ageStr || Number.isNaN(age)) errors.push("Please enter your age.");
-  if (!Number.isNaN(age) && (age < 14 || age > 21))
-    errors.push("Age must be between 14 and 21.");
+  if (!Number.isNaN(age) && (age < 13 || age > 22))
+    errors.push("Age must be between 13 and 22.");
   if (!gender) errors.push("Please select your gender.");
 
   if (!heardHow) errors.push("Please tell us how you heard about the event.");
